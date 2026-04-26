@@ -1,4 +1,4 @@
-from app.schemas.UserSchema import CreateUser, Login
+from app.schemas.UserSchema import CreateUser, Login, refreshTok
 from sqlalchemy.orm import Session 
 from app.models.UserModel import User
 from fastapi import HTTPException
@@ -58,14 +58,14 @@ async def login (db: Session, data: Login) -> dict:
         if not verifyPassword(data.password, user.password):
             raise HTTPException (status_code = 401, detail = "Incorrect password")
         
-        accessToken = create_access_token (data = {"sub" : user.user_id})
+        accessToken = create_access_token (data = {"sub" : str (user.user_id)})
 
         refreshValue = create_refresh_token()
 
         newRefreshToken = RefreshToken(
             user_id = user.user_id,
             token = refreshValue,
-            expiresAt = datetime.now(timezone.utc) + timedelta (hours = 2)
+            expiresAt = datetime.now(timezone.utc) + timedelta (hours = 1)
         )
 
         db.add (newRefreshToken)
@@ -85,3 +85,49 @@ async def login (db: Session, data: Login) -> dict:
         print(e)
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
+    
+async def refreshToken (data: refreshTok, db: Session):
+
+    try: 
+        storedToken = db.query(RefreshToken).filter(RefreshToken.token == data.token).one_or_none()
+
+        if not storedToken:
+            raise HTTPException (status_code = 401, detail = "Token not found")
+
+        if storedToken.isRevoked:
+            storedToken.userRefresh.isFlagged = True
+            db.commit()
+            raise HTTPException (status_code = 401, detail = "Invalid token")
+        
+        if storedToken.expiresAt < datetime.now(timezone.utc):
+            storedToken.userRefresh.isFlagged = True
+            db.commit()
+            raise HTTPException (status_code = 401, detail = "Invalid Token")
+        
+        storedToken.isRevoked = True 
+
+        newAccess = create_access_token(data = {"sub" : str (storedToken.user_id)})
+
+        newRefreshvalue = create_refresh_token()
+
+        newRefresh = RefreshToken (
+            user_id = storedToken.user_id,
+            token = newRefreshvalue,
+            expiresAt = datetime.now(timezone.utc) + timedelta (hours = 1)
+        )
+        db.add(newRefresh)
+        db.commit()
+        db.refresh (newRefresh)
+
+        return {"Access Token" : newAccess,
+                "Refresh Token" : newRefreshvalue,
+                "Token type" : "Bearer"
+        }
+    
+    except HTTPException:
+        raise 
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
+    
+

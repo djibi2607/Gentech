@@ -3,6 +3,7 @@ from app.routers import UserRoutes, AdminRoutes, AgentRoutes
 from app.models.UserModel import User
 from app.models.WalletModel import Wallet
 from app.models.TransactionModel import Transaction
+from app.models.RefreshModel import RefreshToken
 from app.database import base, engine
 
 app = FastAPI()
