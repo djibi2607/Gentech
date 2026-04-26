@@ -23,7 +23,7 @@ class Transaction(base):
 
     wallet = relationship ("Wallet", back_populates = "transactions")
 
-    sender = relationship ("User", foreign_keys = [sender_id])
+    sender = relationship ("User", foreign_keys = [sender_id], back_populates = "transactions_sent")
     
-    receiver = relationship ("User", foreign_keys = [receiver_id])
+    receiver = relationship ("User", foreign_keys = [receiver_id], back_populates ="transactions_received")
 

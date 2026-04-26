@@ -24,3 +24,9 @@ class User (base):
     updatedAt = Column (DateTime(timezone=True), onupdate = func.now())
 
     wallet = relationship ("Wallet", back_populates = "user")
+
+    transactions_sent = relationship ("Transaction", foreign_keys = "Transaction.sender_id", back_populates = "sender")
+
+    transactions_received = relationship ("Transaction", foreign_keys = "Transaction.receiver_id", back_populates = "receiver")
+
+    refresh = relationship ("RefreshToken", back_populates = "userRefresh")
