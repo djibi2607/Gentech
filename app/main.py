@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
+load_dotenv()
 from app.routers import UserRoutes, AdminRoutes, AgentRoutes
 from app.models.UserModel import User
 from app.models.WalletModel import Wallet

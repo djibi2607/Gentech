@@ -8,6 +8,7 @@ from app.models.WalletModel import Wallet
 from app.utils.Jwt import create_access_token, create_refresh_token
 from app.models.RefreshModel import RefreshToken
 from datetime import datetime, timedelta, timezone
+from app.utils import Resend
 
 async def signup (db: Session, data : CreateUser) -> dict:
     try:
@@ -32,6 +33,8 @@ async def signup (db: Session, data : CreateUser) -> dict:
             user_id = newUser.user_id
         )
         db.add(newWallet)
+        if data.email:
+            Resend.sendWelcomeEmail(data.name, data.email)
         db.commit()
         db.refresh(newUser)
         db.refresh(newWallet)
