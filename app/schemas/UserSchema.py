@@ -1,5 +1,6 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, Field
 import re
+from decimal import Decimal
 
 class CreateUser(BaseModel):
     name : str
@@ -21,4 +22,8 @@ class Login (BaseModel):
 
 class refreshTok (BaseModel):
     token : str 
-    
+
+class DepWith (BaseModel):
+    amount : Decimal = Field (gt = 0, lt = 10000, decimal_places = 2)
+    description : str | None = None
+

@@ -1,6 +1,6 @@
 import os, resend
 from typing import Dict
-
+from decimal import Decimal
 resend.api_key = os.getenv("RESEND_API_KEY")
 if not resend.api_key: 
     raise ValueError ("Resend key not found")
@@ -19,3 +19,20 @@ def sendWelcomeEmail(name: str) -> Dict:
     }
     response: resend.Emails.SendResponse = resend.Emails.send(params)
     return response  
+
+
+def sendDepositEmail (name: str, amount : Decimal) -> Dict:
+    params: resend.Emails.SendParams = {
+        "from" : "Acme <onboarding@resend.dev",
+        "to" : ["djibi26072018@gmail.com"],
+        "subject" : "Deposit Transaction",
+         "html": f"""
+            <h1>Your deposit has been successful, {name}!</h1>
+            <p>Your deposit of {amount} is now available in your account.</p>
+            <br/>
+            <p>The Gentech Team</p>"""
+        }
+    
+    response : resend.Emails.SendParams = resend.Emails.send(params)
+
+    return response

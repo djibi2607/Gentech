@@ -1,4 +1,4 @@
-from app.schemas.UserSchema import CreateUser, Login, refreshTok
+from app.schemas.UserSchema import CreateUser, Login, refreshTok, DepWith
 from sqlalchemy.orm import Session 
 from app.models.UserModel import User
 from fastapi import HTTPException
@@ -9,6 +9,7 @@ from app.utils.Jwt import create_access_token, create_refresh_token
 from app.models.RefreshModel import RefreshToken
 from datetime import datetime, timedelta, timezone
 from app.utils import Resend
+from app.models.TransactionModel import Transaction
 
 async def signup (db: Session, data : CreateUser) -> dict:
     try:
@@ -134,3 +135,34 @@ async def refreshToken (data: refreshTok, db: Session):
         raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
     
 
+async def deposit (data: DepWith, db: Session, current_user : User):
+
+    try: 
+        if data.description is None:
+            data.description = "Unspecified"
+
+        if current_user.isFlagged:
+            raise HTTPException (status_code = 401, detail = "Unable to deposit due to suspicious activities. Please contact support")
+        
+        current_user.wallet.balance += data.amount
+        
+        newTrans = Transaction (
+           amount = data.amount,
+            trans_type = "Deposit",
+            description = data.description,
+            wallet_id = current_user.wallet.wallet_id
+        )
+
+        db.add(newTrans)
+        Resend.sendDepositEmail(current_user.name, data.amount)
+        db.commit()
+        db.refresh(newTrans)
+        db.refresh(current_user.wallet)
+        return {"Notice" : f"The amount of {data.amount} has successfully been deposited into your account"}
+    
+    except HTTPException:
+        raise 
+    
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong, try again")

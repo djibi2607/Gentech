@@ -13,9 +13,9 @@ class Transaction(base):
 
     description = Column (String, nullable = True)
 
-    sender_id =  Column (Integer, ForeignKey("users.user_id"), nullable = False)
+    sender_id =  Column (Integer, ForeignKey("users.user_id"), nullable = True)
 
-    receiver_id = Column (Integer, ForeignKey("users.user_id"), nullable = False)
+    receiver_id = Column (Integer, ForeignKey("users.user_id"), nullable = True)
 
     initiatedAt = Column (DateTime(timezone = True), server_default = func.now())
 
