@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from app.utils import Resend
 from app.models.TransactionModel import Transaction
 from app.utils.DailyLimit import checkDailyLimits
-from app.schemas.TransactionSchema import DepWith
+from app.schemas.TransactionSchema import DepWith, Transfer
 
 async def signup (db: Session, data : CreateUser) -> dict:
     try:
@@ -36,8 +36,13 @@ async def signup (db: Session, data : CreateUser) -> dict:
             user_id = newUser.user_id
         )
         db.add(newWallet)
-        if data.email:
-            Resend.sendWelcomeEmail(data.name)
+
+        try: 
+            if data.email:
+                Resend.sendWelcomeEmail(data.name)
+        except: 
+            pass
+
         db.commit()
         db.refresh(newUser)
         db.refresh(newWallet)
@@ -158,11 +163,16 @@ async def deposit (data: DepWith, db: Session, current_user : User):
         )
 
         db.add(newTrans)
-        Resend.sendDepositEmail(current_user.name, data.amount)
+
+        try: 
+            Resend.sendDepositEmail(current_user.name, data.amount)
+        except: 
+            pass 
+
         db.commit()
         db.refresh(newTrans)
         db.refresh(current_user.wallet)
-        return {"Notice" : f"The amount of {data.amount} has successfully been deposited into your account"}
+        return {"Notice" : f"The amount of ${data.amount} has successfully been deposited into your account"}
     
     except HTTPException:
         raise 
@@ -196,12 +206,17 @@ async def withdraw (db:Session, data : DepWith, current_user: User):
         )
 
         db.add(newTrans)
-        Resend.sendWithdrawEmail(current_user.name, data.amount)
+
+        try: 
+            Resend.sendWithdrawEmail(current_user.name, data.amount)
+        except: 
+            pass
+
         db.commit()
         db.refresh(newTrans)
         db.refresh(current_user.wallet)
 
-        return {"Notice" : f"The amount of {data.amount} has successfully been withdrawn from your account"}
+        return {"Notice" : f"The amount of ${data.amount} has successfully been withdrawn from your account"}
 
     except HTTPException:
         raise 
@@ -210,5 +225,71 @@ async def withdraw (db:Session, data : DepWith, current_user: User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
     
+async def transfer (db: Session, data: Transfer, current_user : User):
 
+    try:
         
+        if current_user.isFlagged:
+            raise HTTPException (status_code = 401, detail = "Unable to transfer due to suspicious activities. Please contact our support")
+
+        if data.description is None:
+            data.description = "Unspecified"
+
+        if data.receiver_email is None and data.receiver_phone is None:
+            raise HTTPException (status_code = 400, detail = "You must provide the recepient email or phone")
+        
+        if data.amount > current_user.wallet.balance:
+            raise HTTPException (status_code = 400, detail = "Insufficient funds")
+        
+        
+        receiver = db.query (User).filter (or_(User.email == data.receiver_email, User.phone == data.receiver_phone), User.isDeleted == False).one_or_none()
+
+        if not receiver:
+            raise HTTPException (status_code = 404, detail = "Receipient not found")
+        
+        if current_user.user_id == receiver.user_id:
+            raise HTTPException (status_code = 400, detail = "You cannot make a transaction to your bank account")
+        
+        await checkDailyLimits(db, current_user.user_id, data.amount)
+
+        receiverTrans = Transaction (
+            amount = data.amount,
+            trans_type = "Transfer In",
+            description = data.description,
+            sender_id = current_user.user_id,
+            wallet_id = receiver.wallet.wallet_id
+        )
+        db.add(receiverTrans)
+
+        senderTrans = Transaction (
+            amount = data.amount,
+            trans_type = "Transfer Out",
+            description = data.description,
+            receiver_id = receiver.user_id,
+            wallet_id = current_user.wallet.wallet_id
+        )
+        db.add (senderTrans)
+
+        current_user.wallet.balance -= data.amount
+        receiver.wallet.balance += data.amount
+
+        try: 
+            Resend.sendTransferEmailReceiver (receiver.name, data.amount, current_user.name, current_user.email, current_user.phone)
+            Resend.sendTransferEmailSender (current_user.name, data.amount, receiver.name, receiver.email)
+        except: 
+            pass
+
+        db.commit()
+        db.refresh(receiverTrans)
+        db.refresh(senderTrans)
+
+        return {"Notice" : f"Your transfer of ${data.amount} is being processed. We will notify you after getting processed"}
+    
+    except HTTPException:
+        raise 
+
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
+    
+

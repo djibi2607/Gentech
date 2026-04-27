@@ -5,7 +5,7 @@ from app.services import UserServices
 from sqlalchemy.orm import Session
 from app.utils.Auth import get_current_user
 from app.models.UserModel import User
-from app.schemas.TransactionSchema import DepWith
+from app.schemas.TransactionSchema import DepWith, Transfer
 
 router = APIRouter(prefix = "/api/users")
 
@@ -24,3 +24,13 @@ async def refreshToken (data: refreshTok, db: Session = Depends (get_db)):
 @router.post("/deposit")
 async def deposit (data: DepWith, db: Session = Depends (get_db), current_user: User = Depends(get_current_user)):
     return await UserServices.deposit(data, db, current_user)
+
+@router.post ("/withdraw")
+async def deposit (data: DepWith, db: Session = Depends (get_db), current_user:User = Depends (get_current_user)):
+    return await UserServices.withdraw(db,data,current_user)
+
+@router.post("/transfer")
+async def transfer (data: Transfer, db: Session = Depends (get_db), current_user: User = Depends (get_current_user)):
+    return await UserServices.transfer(db, data, current_user)
+
+
