@@ -14,4 +14,4 @@ app.include_router(UserRoutes.router)
 app.include_router(AdminRoutes.router)
 app.include_router(AgentRoutes.router)
 
-base.metadata.create_all( bind = engine)
+base.metadata.create_all(bind = engine)

@@ -10,7 +10,8 @@ from app.models.RefreshModel import RefreshToken
 from datetime import datetime, timedelta, timezone
 from app.utils import Resend
 from app.models.TransactionModel import Transaction
-from  app.schemas.TransactionSchema import DepWith
+from app.utils.DailyLimit import checkDailyLimits
+from app.schemas.TransactionSchema import DepWith
 
 async def signup (db: Session, data : CreateUser) -> dict:
     try:
@@ -36,7 +37,7 @@ async def signup (db: Session, data : CreateUser) -> dict:
         )
         db.add(newWallet)
         if data.email:
-            Resend.sendWelcomeEmail(data.name, data.email)
+            Resend.sendWelcomeEmail(data.name)
         db.commit()
         db.refresh(newUser)
         db.refresh(newWallet)
@@ -45,8 +46,8 @@ async def signup (db: Session, data : CreateUser) -> dict:
     
     except HTTPException:
         raise
-    except Exception:
-        
+    except Exception as e:
+        print (e)
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
 
@@ -145,6 +146,8 @@ async def deposit (data: DepWith, db: Session, current_user : User):
         if current_user.isFlagged:
             raise HTTPException (status_code = 401, detail = "Unable to deposit due to suspicious activities. Please contact support")
         
+        await checkDailyLimits (db, current_user.user_id, data.amount)
+        
         current_user.wallet.balance += data.amount
         
         newTrans = Transaction (
@@ -164,7 +167,8 @@ async def deposit (data: DepWith, db: Session, current_user : User):
     except HTTPException:
         raise 
     
-    except Exception:
+    except Exception as e:
+        print (e)
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
 
@@ -176,6 +180,11 @@ async def withdraw (db:Session, data : DepWith, current_user: User):
 
         if current_user.isFlagged:
             raise HTTPException (status_code = 401, detail = "Unable to withdraw due to suspicious activities. Please contact support")
+        
+        if current_user.wallet.balance < data.amount:
+            raise HTTPException(status_code=400, detail="Insufficient funds")
+
+        await checkDailyLimits (db, current_user.user_id, data.amount)
         
         current_user.wallet.balance -= data.amount
         

@@ -21,24 +21,10 @@ def sendWelcomeEmail(name: str) -> Dict:
     response: resend.Emails.SendResponse = resend.Emails.send(params)
     return response  
 
-def sendWelcomeEmail(name: str) -> Dict:
-    params: resend.Emails.SendParams = {
-        "from": "Acme <onboarding@resend.dev>",
-        "to": ["djibi26072018@gmail.com"],
-        "subject": "Account Creation",
-        "html": f"""
-            <h1>Welcome to Gentech, {name}!</h1>
-            <p>Your account has been successfully created.</p>
-            <p>You can now login and start making transactions.</p>
-            <br/>
-            <p>The Gentech Team</p>"""
-    }
-    response: resend.Emails.SendResponse = resend.Emails.send(params)
-    return response  
 
-def send sendDepositEmail(name:str, amount: Decimal)
+def sendDepositEmail(name:str, amount: Decimal):
     params: resend.Emails.SendParams = {
-        "from" : "Acme <onboarding@resend.dev",
+        "from" : "Acme <onboarding@resend.dev>",
         "to" : ["djibi26072018@gmail.com"],
         "subject" : "Deposit Transaction",
          "html": f"""
@@ -52,9 +38,9 @@ def send sendDepositEmail(name:str, amount: Decimal)
 
     return response
 
-def send sendWithdrawEmail(name:str, amount: Decimal)
+def sendWithdrawEmail(name:str, amount: Decimal):
     params: resend.Emails.SendParams = {
-        "from" : "Acme <onboarding@resend.dev",
+        "from" : "Acme <onboarding@resend.dev>",
         "to" : ["djibi26072018@gmail.com"],
         "subject" : "Withdraw Transaction",
          "html": f"""

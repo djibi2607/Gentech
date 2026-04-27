@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
-from app.schemas.UserSchema import CreateUser, Login, refreshTok, DepWith
+from app.schemas.UserSchema import CreateUser, Login, refreshTok
 from app.database import get_db
 from app.services import UserServices
 from sqlalchemy.orm import Session
 from app.utils.Auth import get_current_user
 from app.models.UserModel import User
+from app.schemas.TransactionSchema import DepWith
 
 router = APIRouter(prefix = "/api/users")
 

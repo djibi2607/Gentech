@@ -23,7 +23,7 @@ class User (base):
 
     updatedAt = Column (DateTime(timezone=True), onupdate = func.now())
 
-    wallet = relationship ("Wallet", back_populates = "user")
+    wallet = relationship ("Wallet", back_populates = "user", uselist = False)
 
     transactions_sent = relationship ("Transaction", foreign_keys = "Transaction.sender_id", back_populates = "sender")
 
