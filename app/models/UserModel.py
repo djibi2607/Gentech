@@ -30,3 +30,5 @@ class User (base):
     transactions_received = relationship ("Transaction", foreign_keys = "Transaction.receiver_id", back_populates = "receiver")
 
     refresh = relationship ("RefreshToken", back_populates = "userRefresh")
+
+    role = Column (String, nullable = False, server_default = "user")
