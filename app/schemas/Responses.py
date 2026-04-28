@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import date, datetime
 
 class WalletResponse(BaseModel):
     wallet_id: int
-    createdAt: datetime
-    updatedAt: datetime | None = None
+    createdAt: date
+    updatedAt: date | None = None
 
     class Config:
         from_attributes = True
@@ -14,7 +14,7 @@ class TransactionResponse(BaseModel):
     amount: float
     trans_type: str
     description: str | None = None
-    initiatedAt: datetime
+    initiatedAt: date
 
     class Config:
         from_attributes = True
@@ -26,10 +26,19 @@ class UserResponse(BaseModel):
     phone: str | None = None
     isFlagged: bool
     isDeleted: bool
-    createdAt: datetime
+    createdAt: date
     transactions_sent: list[TransactionResponse] = []
     transactions_received: list[TransactionResponse] = []
     wallet : WalletResponse
     
+    class Config:
+        from_attributes = True
+
+class LogResponse (BaseModel):
+    id: int 
+    description : str 
+    agent_id : int 
+    executedAt : datetime 
+
     class Config:
         from_attributes = True

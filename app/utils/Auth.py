@@ -39,3 +39,11 @@ async def get_current_agent (current_user: User = Depends (get_current_user)):
         raise HTTPException (status_code = 401, detail = "Access restricted to agents")
     
     return current_user
+
+async def get_current_admin (current_user:User = Depends(get_current_user)):
+
+    if current_user.role != "admin":
+
+        raise HTTPException (status_code = 401, detail = "Access restricted")
+    
+    return current_user
