@@ -31,3 +31,11 @@ async def get_current_user (credentials : HTTPAuthorizationCredentials = Depends
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
 
     
+async def get_current_agent (current_user: User = Depends (get_current_user)):
+    
+    roles = ["admin", "agent"]
+
+    if current_user.role not in roles:
+        raise HTTPException (status_code = 401, detail = "Access restricted to agents")
+    
+    return current_user

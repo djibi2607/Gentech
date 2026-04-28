@@ -21,13 +21,13 @@ async def login (data : Login, db:Session = Depends(get_db)):
 async def refreshToken (data: refreshTok, db: Session = Depends (get_db)):
     return await UserServices.refreshToken (data, db)
 
-@router.post("/deposit")
-async def deposit (data: DepWith, db: Session = Depends (get_db), current_user: User = Depends(get_current_user)):
-    return await UserServices.deposit(data, db, current_user)
+# @router.post("/deposit")
+# async def deposit (data: DepWith, db: Session = Depends (get_db), current_user: User = Depends(get_current_user)):
+    # return await UserServices.deposit(data, db, current_user)
 
-@router.post ("/withdraw")
-async def deposit (data: DepWith, db: Session = Depends (get_db), current_user:User = Depends (get_current_user)):
-    return await UserServices.withdraw(db,data,current_user)
+# @router.post ("/withdraw")
+# async def deposit (data: DepWith, db: Session = Depends (get_db), current_user:User = Depends (get_current_user)):
+    # return await UserServices.withdraw(db,data,current_user)
 
 @router.post("/transfer")
 async def transfer (data: Transfer, db: Session = Depends (get_db), current_user: User = Depends (get_current_user)):

@@ -10,3 +10,9 @@ class Transfer (BaseModel):
     description : str | None = None
     receiver_email : str | None = None
     receiver_phone : str | None = None
+
+
+class AgentDepwith (BaseModel):
+    amount : Decimal = Field (gt = 0, lt = 10001, decimal_places = 2)
+    description : str | None = None
+    customer_wallet_id : int 

@@ -32,3 +32,5 @@ class User (base):
     refresh = relationship ("RefreshToken", back_populates = "userRefresh")
 
     role = Column (String, nullable = False, server_default = "user")
+
+    agent = relationship ("AgentLogs", back_populates = "userAgent")
