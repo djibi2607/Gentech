@@ -2,17 +2,17 @@ from app.utils.Auth import get_current_agent
 from app.schemas.TransactionSchema import AgentDepwith
 from sqlalchemy.orm import Session
 from app.models.UserModel import User
-from fastapi import Depends, HTTPException
+from fastapi import HTTPException
 from app.models.WalletModel import Wallet
 from app.utils.DailyLimit import checkDailyLimits
 from app.models.TransactionModel import Transaction
 from app.utils import Resend
-from app.schemas.AgentSchema import CustomerInfo
+from app.schemas.AgentSchema import CustomerInfo, UnflagUser
 from sqlalchemy import or_
 from app.models.AgentLogs import AgentLogs
 from app.schemas.Responses import UserResponse, WalletResponse, TransactionResponse
 
-async def getUserCredientials (data: CustomerInfo, db: Session, current_agent : User = Depends (get_current_agent)):
+async def getUserCredientials (data: CustomerInfo, db: Session, current_agent : User):
         
     try: 
 
@@ -32,7 +32,7 @@ async def getUserCredientials (data: CustomerInfo, db: Session, current_agent : 
             
         newlog = AgentLogs (
             description = f"Agent {current_agent.name} / {current_agent.email} / {current_agent.phone} got {user.email} / {user.phone} credientials",
-            agent_id = current_agent.user_id
+            agent_id = current_agent.agent_id
         )
 
         db.add(newlog)
@@ -50,7 +50,7 @@ async def getUserCredientials (data: CustomerInfo, db: Session, current_agent : 
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong")
 
-async def AgentDeposit (data: AgentDepwith, db: Session, current_agent : User = Depends (get_current_agent)):
+async def AgentDeposit (data: AgentDepwith, db: Session, current_agent : User):
 
     try: 
         if data.description is None:
@@ -76,9 +76,9 @@ async def AgentDeposit (data: AgentDepwith, db: Session, current_agent : User = 
         db.add(newTrans)
 
         newlogs = AgentLogs(
-            description = f"Agent {current_agent.name} / {current_agent.email} / {current_agent.phone} deposited in {customer_wallet.user.email} / {customer_wallet.user.phone} account",
+            description = f"Agent {current_agent.name} / {current_agent.email} / {current_agent.phone} deposited ${data.amount} in {customer_wallet.user.email} / {customer_wallet.user.phone} account",
             amount = data.amount,
-            agent_id = current_agent.user_id
+            agent_id = current_agent.agent_id
         )
         db.add(newlogs)
 
@@ -100,3 +100,56 @@ async def AgentDeposit (data: AgentDepwith, db: Session, current_agent : User = 
         print (e)
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
+
+async def AgentWithdrawal (data : AgentDepwith, db:Session, current_agent:User):
+    try:
+        if data.description is None:
+            data.description = "Unpecified"
+        
+        customer_wallet = db.query (Wallet).filter (Wallet.wallet_id == data.customer_wallet_id).one_or_none()
+
+        if not customer_wallet:
+            raise HTTPException (status_code = 400, detail = "Wallet not found")
+
+        if customer_wallet.balance < data.amount:
+            raise HTTPException (status_code = 400, detail = "Insufficient funds")
+
+        await checkDailyLimits (db, customer_wallet.user.user_id, data.amount)
+
+        customer_wallet.balance -= data.amount 
+
+        newTrans = Transaction (
+            amount = data.amount,
+            trans_type = "In person withdrawal",
+            description = data.description,
+            wallet_id = customer_wallet.wallet_id
+        )
+        db.add(newTrans)
+
+        newLogs = AgentLogs (
+            description = f"Agent {current_agent.name} / {current_agent.email} / {current_agent.phone} withdrew ${data.amount} in {customer_wallet.user.email} / {customer_wallet.user.phone} account",
+            amount = data.amount,
+            agent_id = current_agent.agent_id
+        )
+        db.add(newLogs)
+
+        try:
+            Resend.sendWithdrawEmail(customer_wallet.user.name, data.amount)
+        except: 
+            pass 
+
+            db.commit()
+            db.refresh(newTrans)
+            db.refresh(newLogs)
+            return {"Notice": f"The amount of ${data.amount} has been withdrew from {customer_wallet.user.name} account"}
+
+    except HTTPException:
+        raise
+    
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
+
+async def unflagUser (db:Session, current_agent:User, data: UnflagUser):
+    
+    
