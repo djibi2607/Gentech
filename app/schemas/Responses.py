@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import date, datetime
-
+from decimal import Decimal
 class WalletResponse(BaseModel):
     wallet_id: int
     createdAt: date
@@ -39,6 +39,43 @@ class LogResponse (BaseModel):
     description : str 
     agent_id : int 
     executedAt : datetime 
+
+    class Config:
+        from_attributes = True
+
+
+class AdminTransactionResponse (BaseModel):
+    trans_id: int
+    amount: float
+    trans_type: str
+    description: str | None = None
+    initiatedAt: date
+    sender_id : int | None = None
+    receiver_id : int | None = None
+
+    class Config: 
+        from_attributes = True
+
+class AdminWalletResponse (BaseModel):
+    wallet_id: int
+    createdAt: date
+    updatedAt: date | None = None
+    balance: Decimal 
+
+    class Config:
+        from_attributes = True
+
+class AdminAllUsers (BaseModel):
+    user_id : int
+    name : str 
+    phone : str | None = None
+    email : str | None = None
+    isFlagged: bool
+    isDeleted: bool
+    createdAt: date
+    transactions_sent : list [AdminTransactionResponse] = []
+    transactions_received : list [AdminTransactionResponse] = []
+    wallet : AdminWalletResponse
 
     class Config:
         from_attributes = True

@@ -3,11 +3,11 @@ from app.schemas.AdminSchema import Promote
 from app.models.UserModel import User
 from fastapi import HTTPException
 from sqlalchemy import or_
-from app.schemas.AdminSchema import AgentLogFilters
+from app.schemas.AdminSchema import AgentLogFilters, DeleteUser
 from app.models.AgentLogs import AgentLogs
-from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
-from app.schemas.Responses import LogResponse
+from app.schemas.Responses import LogResponse, AdminAllUsers
+
 async def promote_agent (db: Session, data: Promote, current_user: User):
     
     try:
@@ -62,3 +62,34 @@ async def get_agent_logs (db: Session, data: AgentLogFilters, current_admin : Us
     except Exception:
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong")
+    
+async def get_all_users_info (db: Session, current_admin:User, page: int = 1, limit : int = 10):
+
+    offset = (page - 1) * limit
+
+    users = db.query(User).offset(offset).limit(limit).all()
+
+    return [AdminAllUsers.model_validate(user) for user in users]
+
+async def delete_user(db: Session, current_admin : User, data: DeleteUser):
+    try: 
+
+        user = db.query(User).filter(User.user_id == data.user_id).one_or_none()
+
+        if not user:
+            raise  HTTPException (status_code = 404, detail = "User not found")
+
+        if user.isDeleted:
+            return {"Notice" : "User already deleted"}
+        
+        user.isDeleted = True
+        db.commit()
+        return {"Notice": f"{user.name} has been successfully deleted"}
+
+    except HTTPException:
+        raise 
+
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong. Try again")
+
