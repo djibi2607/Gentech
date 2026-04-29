@@ -92,8 +92,8 @@ async def login (db: Session, data: Login) -> dict:
     except HTTPException:
         raise 
 
-    except Exception :
-        
+    except Exception  as e:
+        print (e)
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
     

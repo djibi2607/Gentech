@@ -1,14 +1,22 @@
 from pydantic import BaseModel 
-from app.database import base
-from datetime import date
-class Promote (base):
+from datetime import datetime
+
+class Promote (BaseModel):
     email : str | None = None
     phone : str | None = None
 
-class AgentLogFilters (base):
+class AgentLogFilters (BaseModel):
     agent_id : int | None = None
-    date_from : date | None = None
-    date_to : date | None = None
+    date_from : datetime | None = None
+    date_to : datetime | None = None
 
-class DeleteUser (base):
+class DeleteUser (BaseModel):
     user_id : int
+
+class CirculationSchema (BaseModel):
+    date_from : datetime | None = None
+    date_to: datetime | None = None
+    trans_type : str | None = None
+
+class Code (BaseModel):
+    code : str 

@@ -1,10 +1,10 @@
 from pydantic import BaseModel
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 class WalletResponse(BaseModel):
     wallet_id: int
-    createdAt: date
-    updatedAt: date | None = None
+    createdAt: datetime
+    updatedAt: datetime | None = None
 
     class Config:
         from_attributes = True
@@ -14,7 +14,7 @@ class TransactionResponse(BaseModel):
     amount: float
     trans_type: str
     description: str | None = None
-    initiatedAt: date
+    initiatedAt: datetime
 
     class Config:
         from_attributes = True
@@ -26,7 +26,7 @@ class UserResponse(BaseModel):
     phone: str | None = None
     isFlagged: bool
     isDeleted: bool
-    createdAt: date
+    createdAt: datetime
     transactions_sent: list[TransactionResponse] = []
     transactions_received: list[TransactionResponse] = []
     wallet : WalletResponse
@@ -38,7 +38,7 @@ class LogResponse (BaseModel):
     id: int 
     description : str 
     agent_id : int 
-    executedAt : datetime 
+    executedAt : datetime
 
     class Config:
         from_attributes = True
@@ -49,7 +49,7 @@ class AdminTransactionResponse (BaseModel):
     amount: float
     trans_type: str
     description: str | None = None
-    initiatedAt: date
+    initiatedAt: datetime
     sender_id : int | None = None
     receiver_id : int | None = None
 
@@ -58,8 +58,8 @@ class AdminTransactionResponse (BaseModel):
 
 class AdminWalletResponse (BaseModel):
     wallet_id: int
-    createdAt: date
-    updatedAt: date | None = None
+    createdAt: datetime
+    updatedAt: datetime | None = None
     balance: Decimal 
 
     class Config:
@@ -72,7 +72,7 @@ class AdminAllUsers (BaseModel):
     email : str | None = None
     isFlagged: bool
     isDeleted: bool
-    createdAt: date
+    createdAt: datetime
     transactions_sent : list [AdminTransactionResponse] = []
     transactions_received : list [AdminTransactionResponse] = []
     wallet : AdminWalletResponse

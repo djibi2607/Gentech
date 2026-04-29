@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 router = APIRouter(prefix = "/api/agent")
 
-@router.post("/get-customer")
+@router.get("/get-customer")
 async def getCustomer(data: CustomerInfo, db: Session = Depends(get_db), current_agent: User = Depends(get_current_agent)):
     return await AgentServices.getUserCredentials(data, db, current_agent)
 
@@ -21,7 +21,7 @@ async def deposit(data: AgentDepwith, db: Session = Depends(get_db), current_age
 async def withdraw(data: AgentDepwith, db: Session = Depends(get_db), current_agent: User = Depends(get_current_agent)):
     return await AgentServices.AgentWithdrawal(data, db, current_agent)
 
-@router.post("/unflag")
+@router.patch("/unflag")
 async def unflag(data: UnflagUser, db: Session = Depends(get_db), current_agent: User = Depends(get_current_agent)):
     return await AgentServices.unflagUser(db, current_agent, data)
 

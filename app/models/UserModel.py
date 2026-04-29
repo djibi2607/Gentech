@@ -19,6 +19,8 @@ class User (base):
 
     isFlagged = Column (Boolean, default = False)
 
+    flag_reason = Column (String, nullable = True)
+
     createdAt = Column (DateTime(timezone=True), server_default = func.now())
 
     updatedAt = Column (DateTime(timezone=True), onupdate = func.now())
