@@ -56,7 +56,7 @@ async def AgentDeposit (data: AgentDepwith, db: Session, current_agent : User):
         if data.description is None:
             data.description = "Unspecified"
 
-        customer_wallet = db.query(Wallet).filter (Wallet.wallet_id == data.customer_wallet_id).one_or_none()
+        customer_wallet = db.query(Wallet).filter (Wallet.wallet_id == data.customer_wallet_id).with_for_update().one_or_none()
 
         if not customer_wallet:
             raise HTTPException (status_code = 400, detail = "Wallet not found")
@@ -106,7 +106,7 @@ async def AgentWithdrawal (data : AgentDepwith, db:Session, current_agent:User):
         if data.description is None:
             data.description = "Unpecified"
         
-        customer_wallet = db.query (Wallet).filter (Wallet.wallet_id == data.customer_wallet_id).one_or_none()
+        customer_wallet = db.query (Wallet).filter (Wallet.wallet_id == data.customer_wallet_id).with_for_update().one_or_none()
 
         if not customer_wallet:
             raise HTTPException (status_code = 400, detail = "Wallet not found")

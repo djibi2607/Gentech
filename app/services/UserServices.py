@@ -153,6 +153,8 @@ async def deposit (data: DepWith, db: Session, current_user : User):
             raise HTTPException (status_code = 401, detail = "Unable to deposit due to suspicious activities. Please contact support")
         
         await checkDailyLimits (db, current_user.user_id, data.amount)
+
+        sender_wallet = db.query(Wallet).filter(Wallet.wallet_id == current_user.wallet.wallet_id).with_for_update().one_or_none()
         
         current_user.wallet.balance += data.amount
         
@@ -172,7 +174,7 @@ async def deposit (data: DepWith, db: Session, current_user : User):
             pass 
 
         await FastAPICache.clear(namespace = f"Balance:{current_user.user_id}")
-        
+
         db.commit()
         db.refresh(newTrans)
         db.refresh(current_user.wallet)
@@ -200,6 +202,8 @@ async def withdraw (db:Session, data : DepWith, current_user: User):
 
         await checkDailyLimits (db, current_user.user_id, data.amount)
         
+        sender_wallet = db.query(Wallet).filter(Wallet.wallet_id == current_user.wallet.wallet_id).with_for_update().one_or_none()
+
         current_user.wallet.balance -= data.amount
         
         newTrans = Transaction (
@@ -255,6 +259,10 @@ async def transfer (db: Session, data: Transfer, current_user : User):
         
         if current_user.user_id == receiver.user_id:
             raise HTTPException (status_code = 400, detail = "You cannot make a transaction to your bank account")
+        
+        sender_wallet = db.query(Wallet).filter(Wallet.wallet_id == current_user.wallet.wallet_id).with_for_update().one_or_none()
+
+        receiver_wallet = db.query(Wallet).filter(Wallet.wallet_id == receiver.wallet.wallet_id).with_for_update().one_or_none()
         
         await checkDailyLimits(db, current_user.user_id, data.amount)
 
