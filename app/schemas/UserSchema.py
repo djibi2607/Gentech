@@ -22,4 +22,14 @@ class Login (BaseModel):
 
 class refreshTok (BaseModel):
     token : str 
+    password : str 
 
+class UpdatePhone:
+    phone : str 
+    password : str 
+class UpdateEmail:
+    email : str 
+
+class UpdatePassword: 
+    old_password : str 
+    new_password : str 

@@ -1,4 +1,4 @@
-from app.schemas.UserSchema import CreateUser, Login, refreshTok
+from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone
 from sqlalchemy.orm import Session 
 from app.models.UserModel import User
 from fastapi import HTTPException
@@ -292,4 +292,76 @@ async def transfer (db: Session, data: Transfer, current_user : User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
     
+async def update_email (db: Session, data:UpdateEmail, current_user:User):
 
+    try: 
+
+        if not verifyPassword(data.password, current_user.password):
+            raise HTTPException (status_code = 400, detail = "Incorrect password")
+    
+        if current_user.email == data.email:
+            raise HTTPException (status_code = 409, detail = "New email can't be the same as old one")
+    
+        current_user.email = data.email
+        db.commit()
+    
+        return {"Notice" : "New email registered"}
+    
+    except HTTPException:
+        raise 
+    
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
+
+async def update_phone (db: Session, data: UpdatePhone, current_user : User):
+
+    try: 
+        if not verifyPassword (data.password, current_user.password):
+            raise HTTPException (status_code = 400, detail = "Incorrect password")
+        
+        if current_user.phone == data.phone:
+            raise HTTPException (status_code = 409, detail = "New phone can't be the same as old one")
+        
+        current_user.phone = data.phone
+        db.commit()
+
+        return {"Notice" :  "New phone registered"}
+    
+    except HTTPException:
+        raise 
+
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
+
+async def update_password (db: Session, data:UpdatePassword, current_user :User):
+    try:
+        if not verifyPassword(data.old_password, current_user.password):
+            raise HTTPException (status_code = 400, detail = "Incorrect password")
+        
+        if data.old_password == data.new_password:
+            raise HTTPException (status_code = 409, detail = "New password can't be the same as new one")
+        
+        current_user.password = hashPassword(data.new_password)
+        db.commit()
+
+        return {"Notice" : "New password registered"}
+    
+    except HTTPException:
+        raise 
+
+    except Exception:
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong. Try again")
+    
+async def delete_account (db: Session, current_user: User):
+
+    try:
+        current_user.isDeleted = True
+        db.commit()
+        return {"Notice": "Account is deleted"}
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Something went wrong. Try again")

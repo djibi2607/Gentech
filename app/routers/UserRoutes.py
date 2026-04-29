@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from app.schemas.UserSchema import CreateUser, Login, refreshTok
+from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone
 from app.database import get_db
 from app.services import UserServices
 from sqlalchemy.orm import Session
@@ -33,4 +33,18 @@ async def refreshToken (data: refreshTok, db: Session = Depends (get_db)):
 async def transfer (data: Transfer, db: Session = Depends (get_db), current_user: User = Depends (get_current_user)):
     return await UserServices.transfer(db, data, current_user)
 
+@router.patch ("/update-email")
+async def updateEmail (data : UpdateEmail, db: Session = Depends (get_db), current_user : User = Depends(get_current_user)):
+    return await UserServices.update_email(db,data,current_user)
 
+@router.patch ("/update-phone")
+async def updatePhone (data: UpdatePhone, db: Session = Depends(get_db), current_user:User = Depends(get_current_user)):
+    return await UserServices.update_phone(db, data, current_user)
+
+@router.patch ("/update-password")
+async def updatePassword (data: UpdatePassword, db: Session = Depends(get_db), current_user:User = Depends(get_current_user)):
+    return await UserServices.update_password(db,data,current_user)
+
+@router.delete ("/delete-account")
+async def deleteAccount (db:Session = Depends(get_db), current_user:User = Depends(get_current_user)):
+    return await UserServices.delete_account(db, current_user)
