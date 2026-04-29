@@ -12,6 +12,7 @@ from app.utils import Resend
 from app.models.TransactionModel import Transaction
 from app.utils.DailyLimit import checkDailyLimits
 from app.schemas.TransactionSchema import DepWith, Transfer
+from fastapi_cache import FastAPICache
 
 async def signup (db: Session, data : CreateUser) -> dict:
     try:
@@ -161,6 +162,7 @@ async def deposit (data: DepWith, db: Session, current_user : User):
             description = data.description,
             wallet_id = current_user.wallet.wallet_id
         )
+        await FastAPICache.clear()
 
         db.add(newTrans)
 
@@ -169,6 +171,8 @@ async def deposit (data: DepWith, db: Session, current_user : User):
         except: 
             pass 
 
+        await FastAPICache.clear(namespace = f"Balance:{current_user.user_id}")
+        
         db.commit()
         db.refresh(newTrans)
         db.refresh(current_user.wallet)
@@ -211,6 +215,8 @@ async def withdraw (db:Session, data : DepWith, current_user: User):
             Resend.sendWithdrawEmail(current_user.name, data.amount)
         except: 
             pass
+
+        await FastAPICache.clear(namespace = f"Balance:{current_user.user_id}")
 
         db.commit()
         db.refresh(newTrans)
@@ -269,7 +275,7 @@ async def transfer (db: Session, data: Transfer, current_user : User):
             wallet_id = current_user.wallet.wallet_id
         )
         db.add (senderTrans)
-
+        
         current_user.wallet.balance -= data.amount
         receiver.wallet.balance += data.amount
 
@@ -278,6 +284,9 @@ async def transfer (db: Session, data: Transfer, current_user : User):
             Resend.sendTransferEmailSender (current_user.name, data.amount, receiver.name, receiver.email)
         except: 
             pass
+        
+        await FastAPICache.clear(namespace = f"Balance:{current_user.user_id}")
+        await FastAPICache.clear(namespace = f"Balance:{receiver.user_id}")
 
         db.commit()
         db.refresh(receiverTrans)
@@ -365,3 +374,6 @@ async def delete_account (db: Session, current_user: User):
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Something went wrong. Try again")
+    
+async def getBalance (current_user:User):
+    return {"Balance" : current_user.wallet.balance}

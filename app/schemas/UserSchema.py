@@ -24,12 +24,13 @@ class refreshTok (BaseModel):
     token : str 
     password : str 
 
-class UpdatePhone:
+class UpdatePhone(BaseModel):
     phone : str 
     password : str 
-class UpdateEmail:
+
+class UpdateEmail(BaseModel):
     email : str 
 
-class UpdatePassword: 
+class UpdatePassword(BaseModel): 
     old_password : str 
     new_password : str 

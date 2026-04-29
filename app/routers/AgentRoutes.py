@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 router = APIRouter(prefix = "/api/agent")
 
-@router.get("/get-customer")
+@router.post("/get-customer")
 async def getCustomer(data: CustomerInfo, db: Session = Depends(get_db), current_agent: User = Depends(get_current_agent)):
-    return await AgentServices.getUserCredentials(data, db, current_agent)
+    return await AgentServices.getUserCredientials(data, db, current_agent)
 
 @router.post("/deposit")
 async def deposit(data: AgentDepwith, db: Session = Depends(get_db), current_agent: User = Depends(get_current_agent)):
