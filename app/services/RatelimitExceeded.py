@@ -5,6 +5,8 @@ from app.utils.Config import SECRET_KEY, ALGORITHM
 from app.database import SessionLocal
 from app.models.UserModel import User
 from fastapi.responses import JSONResponse
+from app.models.BannedIps import BannedIps
+from datetime import datetime, timezone
 
 async def _rate_limit_exceeded_custom (request : Request, exc: RateLimitExceeded):
 
@@ -12,7 +14,13 @@ async def _rate_limit_exceeded_custom (request : Request, exc: RateLimitExceeded
 
         db = SessionLocal()
 
-        ip = request.client.host
+        request_ip = request.client.host
+
+        new_banned_ip = BannedIps(
+            ip = request_ip,
+            addedAt = datetime.now(timezone.utc)
+        )
+        db.add(new_banned_ip)
 
         token = request.headers.get("Authorization")
 
@@ -35,6 +43,7 @@ async def _rate_limit_exceeded_custom (request : Request, exc: RateLimitExceeded
             user.flag_reason = "Limit exceeded"
 
             db.commit()
+            db.refresh(new_banned_ip)
 
             return JSONResponse(status_code=429,content={"Notice": "Your account has been flagged. Please contact support"})
         

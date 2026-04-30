@@ -19,7 +19,7 @@ if config.config_file_name is not None:
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
 from app.database import base
-from app.models import UserModel, WalletModel, TransactionModel, RefreshModel, AgentLogs
+from app.models import UserModel, WalletModel, TransactionModel, RefreshModel, AgentLogs, BannedIps
 target_metadata = base.metadata
 
 # other values from the config, defined by the needs of env.py,

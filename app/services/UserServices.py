@@ -1,7 +1,7 @@
 from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone
 from sqlalchemy.orm import Session 
 from app.models.UserModel import User
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from sqlalchemy import or_
 from app.utils.Hashing import hashPassword, verifyPassword
 from app.models.WalletModel import Wallet
@@ -13,11 +13,21 @@ from app.models.TransactionModel import Transaction
 from app.utils.DailyLimit import checkDailyLimits
 from app.schemas.TransactionSchema import DepWith, Transfer
 from fastapi_cache import FastAPICache
+from app.models.BannedIps import BannedIps
 
-async def signup (db: Session, data : CreateUser) -> dict:
+async def signup (request : Request, db: Session, data : CreateUser) -> dict:
+    
     try:
+        request_ip = request.client.host
+
+        banned_ips = db.query (BannedIps).filter(BannedIps.ip == request_ip).first()
+
+        if banned_ips:
+            raise HTTPException (status_code = 403, detail = "You have been disabled to signup")
+
         if data.email is None and data.phone is None:
             raise HTTPException (status_code = 400, detail = "You must provide an email or phone number")
+        
     
         existing_user = db.query(User).filter(or_(User.email == data.email, User.phone == data.phone), User.isDeleted == False).first()
 
@@ -57,8 +67,15 @@ async def signup (db: Session, data : CreateUser) -> dict:
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
 
-async def login (db: Session, data: Login) -> dict:
+async def login (request : Request, db: Session, data: Login) -> dict:
     try:
+        request_ip = request.client.host
+
+        banned_ips = db.query (BannedIps).filter(BannedIps.ip == request_ip).first()
+
+        if banned_ips:
+            raise HTTPException (status_code = 403, detail = "You have been disabled to login")
+
         if not data.email and not data.phone:
             raise HTTPException (status_code = 400, detail = "You must enter your phone or email")
         
@@ -98,9 +115,16 @@ async def login (db: Session, data: Login) -> dict:
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
     
-async def refreshToken (data: refreshTok, db: Session):
+async def refreshToken (request : Request, data: refreshTok, db: Session):
 
     try: 
+        request_ip = request.client.host
+
+        banned_ips = db.query (BannedIps).filter(BannedIps.ip == request_ip).first()
+
+        if banned_ips:
+            raise HTTPException (status_code = 403, detail = "You have been disabled to login")
+
         storedToken = db.query(RefreshToken).filter(RefreshToken.token == data.token).one_or_none()
 
         if not storedToken:
@@ -143,7 +167,7 @@ async def refreshToken (data: refreshTok, db: Session):
         raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
     
 
-async def deposit (data: DepWith, db: Session, current_user : User):
+async def deposit (request : Request, data: DepWith, db: Session, current_user : User):
 
     try: 
         if data.description is None:
@@ -188,7 +212,7 @@ async def deposit (data: DepWith, db: Session, current_user : User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
 
-async def withdraw (db:Session, data : DepWith, current_user: User):
+async def withdraw (request : Request, db:Session, data : DepWith, current_user: User):
     
     try: 
         if data.description is None:
@@ -235,7 +259,7 @@ async def withdraw (db:Session, data : DepWith, current_user: User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
     
-async def transfer (db: Session, data: Transfer, current_user : User):
+async def transfer (request : Request, db: Session, data: Transfer, current_user : User):
 
     try:
         
@@ -309,7 +333,7 @@ async def transfer (db: Session, data: Transfer, current_user : User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, try again")
     
-async def update_email (db: Session, data:UpdateEmail, current_user:User):
+async def update_email (request : Request, db: Session, data:UpdateEmail, current_user:User):
 
     try: 
 
@@ -331,7 +355,7 @@ async def update_email (db: Session, data:UpdateEmail, current_user:User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
 
-async def update_phone (db: Session, data: UpdatePhone, current_user : User):
+async def update_phone (request : Request, db: Session, data: UpdatePhone, current_user : User):
 
     try: 
         if not verifyPassword (data.password, current_user.password):
@@ -352,7 +376,7 @@ async def update_phone (db: Session, data: UpdatePhone, current_user : User):
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong. Please try again")
 
-async def update_password (db: Session, data:UpdatePassword, current_user :User):
+async def update_password (request : Request, db: Session, data:UpdatePassword, current_user :User):
     try:
         if not verifyPassword(data.old_password, current_user.password):
             raise HTTPException (status_code = 400, detail = "Incorrect password")
