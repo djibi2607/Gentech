@@ -11,25 +11,27 @@ from fastapi_cache import FastAPICache
 from redis import asyncio as aioredis
 from contextlib import asynccontextmanager
 import os
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from app.services.RatelimitExceeded import _rate_limit_exceeded_custom
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from app.utils import ScheduledJobs
+from app.services.RatelimitExceeded import limiter
 
 @asynccontextmanager
 async def lifespan (app: FastAPI):
     redis_url = os.getenv("REDIS_URL")
-
+    scheduler = AsyncIOScheduler()
     try:
         redis = aioredis.from_url (redis_url)
 
         FastAPICache.init(RedisBackend(redis), prefix = "gentech-app-cache")
+        scheduler.add_job(ScheduledJobs.delete_old_refresh, "interval", hours = 24)
+        scheduler.start()
         yield
 
     finally:
         await redis.aclose()
-
-limiter = Limiter (key_func = get_remote_address)
+        scheduler.shutdown()
 
 app = FastAPI(lifespan = lifespan)
 

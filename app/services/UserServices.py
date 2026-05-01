@@ -17,6 +17,10 @@ from app.models.BannedIps import BannedIps
 from app.utils.GeoipUtil import get_location
 from app.utils.User_agent import getUserAgent
 from app.models.UserLogs import UserLogs
+from app.utils import Kyc
+from app.models.KycModel import Kycs
+from fastapi import UploadFile
+
 
 async def signup (request : Request, db: Session, data : CreateUser) -> dict:
     
@@ -549,3 +553,65 @@ async def delete_account (request : Request, db: Session, current_user: User):
     
 async def getBalance (current_user:User):
     return {"Balance" : current_user.wallet.balance}
+
+
+async def uploadFiletoS3 (request: Request, document_type : str, file : UploadFile, selfie : UploadFile, db: Session, current_user: User):
+    
+    try: 
+        location = get_location(request.client.host)
+        ua = getUserAgent(request.headers.get("user-agent"))
+
+        existing_kyc = db.query(Kycs).filter (Kycs.user_id == current_user.user_id).first()
+
+        if existing_kyc:
+            raise HTTPException (status_code = 400, detail = "File already uploaded")
+        
+        allowed_types = ["passport", "national_id", "driver_license"]
+
+        if document_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Invalid document type")
+        
+        allowed_extensions = ["jpg", "jpeg", "png", "pdf"]
+
+        file_ext = file.filename.split(".")[-1].lower()
+        selfies_ext = selfie.filename.split(".")[-1].lower()
+
+        if file_ext not in allowed_extensions or selfies_ext not in allowed_extensions:
+            raise HTTPException (status_code = 400, detail = "Files must be in jpg, jpeg, png or pdf")
+        
+        doc_key = Kyc.uploadFiletoS3(file.file, current_user.user_id, file.filename, "Id")
+        self_key = Kyc.uploadFiletoS3 (selfie.file, current_user.user_id, selfie.filename, "selfies")
+
+        newKyc = Kycs(
+            user_id=current_user.user_id,
+            document_type=document_type,
+            document_key=doc_key,
+            selfie_key=self_key
+        )
+        db.add(newKyc)
+
+        newUserLog = UserLogs (
+            user_id = current_user.user_id,
+            action = f"User uploaded Kyc",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
+        db.commit()
+        db.refresh(newKyc)
+        db.refresh(newUserLog)
+
+        return {"Notice": "KYC submitted successfully, pending review"}
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        print(e)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Something went wrong. Please try again")

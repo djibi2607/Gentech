@@ -36,3 +36,5 @@ class User (base):
     agent = relationship ("AgentLogs", back_populates = "userAgent")
 
     userLogs = relationship("UserLogs", back_populates = "userConnection")
+
+    kyc = relationship("Kycs", back_populates="user", uselist=False)

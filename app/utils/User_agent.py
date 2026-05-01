@@ -1,6 +1,6 @@
 from user_agents import parse
 
-async def getUserAgent (user_agent:str):
+def getUserAgent (user_agent:str):
 
     try: 
         ua = parse(user_agent)
