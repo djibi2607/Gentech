@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request
-from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone
+from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone, Verify
 from app.database import get_db
 from app.services import UserServices
 from sqlalchemy.orm import Session
@@ -23,6 +23,10 @@ async def signup (request: Request, data:CreateUser, db: Session = Depends (get_
 @limiter.limit("3/minute")
 async def login (request: Request, data : Login, db:Session = Depends(get_db)):
     return await UserServices.login(request, db,data)
+
+@router.post("/verify-2fa")
+async def verifyCode(request: Request, data: Verify, db: Session = Depends(get_db)):
+    return await UserServices.verify_code(request, data, db)
 
 @router.post("/refresh_token")
 @limiter.limit("2/minute")

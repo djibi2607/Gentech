@@ -38,3 +38,9 @@ class User (base):
     userLogs = relationship("UserLogs", back_populates = "userConnection")
 
     kyc = relationship("Kycs", back_populates="user", uselist=False)
+
+    code_2fa = Column (String, nullable = True)
+
+    enabled_2fa = Column (Boolean, default = False, nullable = False)
+
+    expired_code = Column (DateTime(timezone = True), nullable = False)

@@ -5,6 +5,8 @@ from app.database import get_db
 from jose import jwt, JWTError
 from app.utils.Config import SECRET_KEY, ALGORITHM
 from app.models.UserModel import User
+import random
+from datetime import datetime, timedelta, timezone
 
 async def get_current_user (credentials : HTTPAuthorizationCredentials = Depends (HTTPBearer()), db: Session = Depends (get_db)):
 
@@ -47,3 +49,18 @@ async def get_current_admin (current_user:User = Depends(get_current_user)):
         raise HTTPException (status_code = 401, detail = "Access restricted")
     
     return current_user
+
+async def create_code(current_user: User, db: Session):
+    try:
+        code = str(random.randint(100000, 999999))
+
+        current_user.code_2fa = code
+        current_user.expired_code = datetime.now(timezone.utc) + timedelta(minutes=10)
+        db.commit()
+        db.refresh(current_user)
+
+        return code
+
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Something went wrong. Try again")

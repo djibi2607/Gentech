@@ -85,3 +85,18 @@ def sendTransferEmailSender (sender_name: str, amount: Decimal, receiver_name: s
     response : resend.Emails.SendResponse = resend.Emails.send(params)
 
     return response
+
+def sendEmailCode (name: str, code: str):
+    params: resend.Emails.SendParams = {
+        "from" : "Acme <onboarding@resend.dev>",
+        "to" : ["djibi26072018@gmail.com"],
+        "subject" : "2FA Authentication",
+         "html": f"""
+            <h1>Your authentification code </h1>
+            <p>Your requested authentication code is {code}, {name}. If you didn't make this request, please constact support instantly.</p>
+            <br/>
+            <p>The Gentech Team</p>"""
+    }
+    response : resend.Emails.SendResponse = resend.Emails.send(params)
+
+    return response

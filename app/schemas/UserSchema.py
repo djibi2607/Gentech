@@ -34,3 +34,7 @@ class UpdateEmail(BaseModel):
 class UpdatePassword(BaseModel): 
     old_password : str 
     new_password : str 
+
+class Verify (BaseModel):
+    code : str 
+    email : str 

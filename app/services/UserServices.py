@@ -1,4 +1,4 @@
-from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone
+from app.schemas.UserSchema import CreateUser, Login, refreshTok, UpdateEmail, UpdatePassword, UpdatePhone, Verify
 from sqlalchemy.orm import Session 
 from app.models.UserModel import User
 from fastapi import HTTPException, Request
@@ -20,7 +20,7 @@ from app.models.UserLogs import UserLogs
 from app.utils import Kyc
 from app.models.KycModel import Kycs
 from fastapi import UploadFile
-
+from app.utils.Auth import create_code
 
 async def signup (request : Request, db: Session, data : CreateUser) -> dict:
     
@@ -125,19 +125,28 @@ async def login (request : Request, db: Session, data: Login) -> dict:
         
         if not verifyPassword(data.password, user.password):
             newUserLog = UserLogs(
-                user_id=user.user_id,
-                action="Failed login attempt",
-                country=location["Country"],
-                city=location["City"],
-                longitude=location["Longitude"],
-                latitude=location["Latitude"],
-                device=ua["Device"],
-                os=ua["os"],
-                browser=ua["browser"]
+            user_id=user.user_id,
+            action="Failed login attempt",
+            country=location["Country"],
+            city=location["City"],
+            longitude=location["Longitude"],
+            latitude=location["Latitude"],
+            device=ua["Device"],
+            os=ua["os"],
+            browser=ua["browser"]
             )
             db.add(newUserLog)
             db.commit()
             raise HTTPException (status_code = 401, detail = "Incorrect password")
+        
+        if user.enabled_2fa == True and user.email != None:
+            code = await create_code(user, db)
+            try: 
+                Resend.sendEmailCode(user.name, code)
+            except:
+                pass
+            return {"Notice" : f"A code has been sent to your email"}
+    
         
         accessToken = create_access_token (data = {"sub" : str (user.user_id)})
 
@@ -179,6 +188,81 @@ async def login (request : Request, db: Session, data: Login) -> dict:
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
     
+
+async def verify_code (request: Request, data : Verify, db: Session):
+    try:
+        request_ip = request.client.host
+        location = get_location(request_ip)
+        ua = getUserAgent(request.headers.get("user-agent"))
+
+        user = db.query (User).filter (User.email == data.email, User.isDeleted == False).one_or_none()
+
+        if not user: 
+            raise HTTPException (status_code = 400, detail = "User not found")
+        
+        if datetime.now(timezone.utc) > user.expired_code:
+            raise HTTPException(status_code=400, detail="Code has expired, please login again")
+        
+        if user.code_2fa != data.code:
+            newUserLog = UserLogs(
+            user_id=user.user_id,
+            action="Failed login attempt because of incorrect code",
+            country=location["Country"],
+            city=location["City"],
+            longitude=location["Longitude"],
+            latitude=location["Latitude"],
+            device=ua["Device"],
+            os=ua["os"],
+            browser=ua["browser"]
+            )
+            db.add(newUserLog)
+            db.commit()
+            raise HTTPException (status_code = 400, detail = "Incorrect code")
+        
+        accessToken = create_access_token (data = {"sub" : str (user.user_id)})
+
+        refreshValue = create_refresh_token()
+
+        newRefreshToken = RefreshToken(                     
+            user_id = user.user_id,
+            token = refreshValue,
+            expiresAt = datetime.now(timezone.utc) + timedelta (hours = 1)
+        )
+        newUserLog = UserLogs (
+            user_id = user.user_id,
+            action = f"User logged in",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        
+        user.code_2fa = None
+        user.expired_code = None
+        db.add(newUserLog)
+        db.add (newRefreshToken)
+        db.commit()
+        db.refresh(newRefreshToken)
+        db.refresh(newUserLog)
+        db.refresh(user)
+        return {"Notice" : f"You have been successfully logged in {user.name}",
+                "Access Token" : accessToken,
+                "Refresh Token" : refreshValue,
+                "Token type" : "Bearer"
+        }
+
+    except HTTPException:
+        raise 
+
+    except Exception  as e:
+        print (e)
+        db.rollback()
+        raise HTTPException (status_code = 500, detail = "Something went wrong, Please try again")
+
+
 async def refreshToken (request : Request, data: refreshTok, db: Session):
 
     try: 
