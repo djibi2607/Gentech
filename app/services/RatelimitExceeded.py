@@ -40,7 +40,6 @@ async def _rate_limit_exceeded_custom (request : Request, exc: RateLimitExceeded
             user = db.query(User).filter(User.user_id ==  int (user_id), User.isDeleted == False).one_or_none()
 
             user.isFlagged = True
-            user.flag_reason = "Limit exceeded"
 
             db.commit()
             db.refresh(new_banned_ip)

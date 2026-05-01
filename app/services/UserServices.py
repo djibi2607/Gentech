@@ -14,16 +14,29 @@ from app.utils.DailyLimit import checkDailyLimits
 from app.schemas.TransactionSchema import DepWith, Transfer
 from fastapi_cache import FastAPICache
 from app.models.BannedIps import BannedIps
+from app.utils.GeoipUtil import get_location
+from app.utils.User_agent import getUserAgent
+from app.models.UserLogs import UserLogs
 
 async def signup (request : Request, db: Session, data : CreateUser) -> dict:
     
     try:
-        request_ip = request.client.host
 
+
+        request_ip = request.client.host
+        ua = getUserAgent(request.headers.get("user-agent"))
+                          
         banned_ips = db.query (BannedIps).filter(BannedIps.ip == request_ip).first()
 
         if banned_ips:
             raise HTTPException (status_code = 403, detail = "You have been disabled to signup")
+
+        location = get_location(request_ip)
+
+        country_allowed = ["Guinea", "United States"]
+
+        if location["Country"] not in country_allowed:
+            raise HTTPException (status_code = 403, detail = "Service not allowed in your location")
 
         if data.email is None and data.phone is None:
             raise HTTPException (status_code = 400, detail = "You must provide an email or phone number")
@@ -48,6 +61,18 @@ async def signup (request : Request, db: Session, data : CreateUser) -> dict:
         )
         db.add(newWallet)
 
+        newUserLog = UserLogs (
+            user_id = newUser.user_id,
+            action = f"User created his gentech account",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         try: 
             if data.email:
                 Resend.sendWelcomeEmail(data.name)
@@ -57,6 +82,7 @@ async def signup (request : Request, db: Session, data : CreateUser) -> dict:
         db.commit()
         db.refresh(newUser)
         db.refresh(newWallet)
+        db.refresh(newUserLog)
 
         return {"Status" : f"Welcome, {data.name}, your account has successfully been created, you can now proceed to login"}
     
@@ -71,6 +97,10 @@ async def login (request : Request, db: Session, data: Login) -> dict:
     try:
         request_ip = request.client.host
 
+        ua = getUserAgent(request.headers.get("user-agent"))
+
+        location = get_location(request_ip)
+
         banned_ips = db.query (BannedIps).filter(BannedIps.ip == request_ip).first()
 
         if banned_ips:
@@ -79,27 +109,57 @@ async def login (request : Request, db: Session, data: Login) -> dict:
         if not data.email and not data.phone:
             raise HTTPException (status_code = 400, detail = "You must enter your phone or email")
         
+        country_allowed = ["Guinea", "United States"]
+
+        if location["Country"] not in country_allowed:
+            raise HTTPException (status_code = 403, detail = "Service not allowed in your location")
+        
         user : User = db.query (User).filter (or_(User.email == data.email, User.phone == data.phone), User.isDeleted == False).one_or_none()
 
         if not user:
             raise HTTPException (status_code = 404, detail = "Your account has not been found. Please signup first")
         
         if not verifyPassword(data.password, user.password):
+            newUserLog = UserLogs(
+                user_id=user.user_id,
+                action="Failed login attempt",
+                country=location["Country"],
+                city=location["City"],
+                longitude=location["Longitude"],
+                latitude=location["Latitude"],
+                device=ua["Device"],
+                os=ua["os"],
+                browser=ua["browser"]
+            )
+            db.add(newUserLog)
+            db.commit()
             raise HTTPException (status_code = 401, detail = "Incorrect password")
         
         accessToken = create_access_token (data = {"sub" : str (user.user_id)})
 
         refreshValue = create_refresh_token()
 
-        newRefreshToken = RefreshToken(
+        newRefreshToken = RefreshToken(                     
             user_id = user.user_id,
             token = refreshValue,
             expiresAt = datetime.now(timezone.utc) + timedelta (hours = 1)
         )
-
+        newUserLog = UserLogs (
+            user_id = user.user_id,
+            action = f"User logged in",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         db.add (newRefreshToken)
         db.commit()
         db.refresh(newRefreshToken)
+        db.refresh(newUserLog)
 
         return {"Notice" : f"You have been successfully logged in {user.name}",
                 "Access Token" : accessToken,
@@ -183,12 +243,11 @@ async def deposit (request : Request, data: DepWith, db: Session, current_user :
         current_user.wallet.balance += data.amount
         
         newTrans = Transaction (
-           amount = data.amount,
+            amount = data.amount,
             trans_type = "Deposit",
             description = data.description,
             wallet_id = current_user.wallet.wallet_id
         )
-        await FastAPICache.clear()
 
         db.add(newTrans)
 
@@ -262,7 +321,10 @@ async def withdraw (request : Request, db:Session, data : DepWith, current_user:
 async def transfer (request : Request, db: Session, data: Transfer, current_user : User):
 
     try:
-        
+        location = get_location(request.client.host)
+
+        ua = getUserAgent(request.headers.get("user-agent"))
+
         if current_user.isFlagged:
             raise HTTPException (status_code = 401, detail = "Unable to transfer due to suspicious activities. Please contact our support")
 
@@ -307,6 +369,19 @@ async def transfer (request : Request, db: Session, data: Transfer, current_user
             wallet_id = current_user.wallet.wallet_id
         )
         db.add (senderTrans)
+
+        newUserLog = UserLogs (
+            user_id = current_user.user_id,
+            action = f"User made a transfer of {data.amount} to receiver_id : {receiver.user_id}",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         
         current_user.wallet.balance -= data.amount
         receiver.wallet.balance += data.amount
@@ -323,7 +398,7 @@ async def transfer (request : Request, db: Session, data: Transfer, current_user
         db.commit()
         db.refresh(receiverTrans)
         db.refresh(senderTrans)
-
+        db.refresh(newUserLog)
         return {"Notice" : f"Your transfer of ${data.amount} is being processed. We will notify you after getting processed"}
     
     except HTTPException:
@@ -336,6 +411,8 @@ async def transfer (request : Request, db: Session, data: Transfer, current_user
 async def update_email (request : Request, db: Session, data:UpdateEmail, current_user:User):
 
     try: 
+        location = get_location(request.client.host)
+        ua = getUserAgent(request.headers.get("user-agent"))
 
         if not verifyPassword(data.password, current_user.password):
             raise HTTPException (status_code = 400, detail = "Incorrect password")
@@ -344,8 +421,22 @@ async def update_email (request : Request, db: Session, data:UpdateEmail, curren
             raise HTTPException (status_code = 409, detail = "New email can't be the same as old one")
     
         current_user.email = data.email
+
+        newUserLog = UserLogs (
+            user_id = current_user.user_id,
+            action = f"User updated his email",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         db.commit()
-    
+        db.refresh(newUserLog)
+
         return {"Notice" : "New email registered"}
     
     except HTTPException:
@@ -358,6 +449,9 @@ async def update_email (request : Request, db: Session, data:UpdateEmail, curren
 async def update_phone (request : Request, db: Session, data: UpdatePhone, current_user : User):
 
     try: 
+        location = get_location(request.client.host)
+        ua = getUserAgent(request.headers.get("user-agent"))
+
         if not verifyPassword (data.password, current_user.password):
             raise HTTPException (status_code = 400, detail = "Incorrect password")
         
@@ -365,7 +459,20 @@ async def update_phone (request : Request, db: Session, data: UpdatePhone, curre
             raise HTTPException (status_code = 409, detail = "New phone can't be the same as old one")
         
         current_user.phone = data.phone
+        newUserLog = UserLogs (
+            user_id = current_user.user_id,
+            action = f"User updated his phone number",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         db.commit()
+        db.refresh(newUserLog)
 
         return {"Notice" :  "New phone registered"}
     
@@ -378,14 +485,30 @@ async def update_phone (request : Request, db: Session, data: UpdatePhone, curre
 
 async def update_password (request : Request, db: Session, data:UpdatePassword, current_user :User):
     try:
+        location = get_location(request.client.host)
+        ua = getUserAgent(request.headers.get("user-agent"))
+
         if not verifyPassword(data.old_password, current_user.password):
             raise HTTPException (status_code = 400, detail = "Incorrect password")
         
         if data.old_password == data.new_password:
-            raise HTTPException (status_code = 409, detail = "New password can't be the same as new one")
+            raise HTTPException (status_code = 409, detail = "New password can't be the same as old one")
         
         current_user.password = hashPassword(data.new_password)
+        newUserLog = UserLogs (
+            user_id = current_user.user_id,
+            action = f"User updated his password",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         db.commit()
+        db.refresh(newUserLog)
 
         return {"Notice" : "New password registered"}
     
@@ -396,11 +519,28 @@ async def update_password (request : Request, db: Session, data:UpdatePassword, 
         db.rollback()
         raise HTTPException (status_code = 500, detail = "Something went wrong. Try again")
     
-async def delete_account (db: Session, current_user: User):
+async def delete_account (request : Request, db: Session, current_user: User):
 
     try:
+        location = get_location(request.client.host)
+        ua = getUserAgent(request.headers.get("user-agent"))
+
         current_user.isDeleted = True
+        newUserLog = UserLogs (
+            user_id = current_user.user_id,
+            action = f"User deleted his account",
+            country = location["Country"],
+            city = location ["City"],
+            longitude = location["Longitude"],
+            latitude = location ["Latitude"],
+            device = ua["Device"],
+            os = ua["os"],
+            browser = ua["browser"]
+        )
+        db.add(newUserLog)
         db.commit()
+        db.refresh(newUserLog)
+
         return {"Notice": "Account is deleted"}
 
     except Exception:

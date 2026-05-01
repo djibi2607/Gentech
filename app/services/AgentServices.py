@@ -29,7 +29,12 @@ async def getUserCredientials (data: CustomerInfo, db: Session, current_agent : 
             
         if user.isDeleted:
             return {"Notice" : "Account is deleted"}
-            
+        
+        if user.role == "admin" and current_agent.role != "admin":
+            current_agent.isFlagged = True 
+            db.commit()
+            raise HTTPException (status_code = 403, detail = "Your account has been flagged")
+
         newlog = AgentLogs (
             description = f"Agent {current_agent.name} / {current_agent.email} / {current_agent.phone} got {user.email} / {user.phone} credientials",
             agent_id = current_agent.user_id
